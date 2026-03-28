@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeHo-WH WhatsApp Bridge</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 { color: #128c7e; margin-bottom: 1rem; }
+        #status { margin-bottom: 1rem; font-weight: bold; }
+        #qrcode { margin: 1rem 0; }
+        #qrcode img { max-width: 100%; height: auto; border: 1px solid #ddd; padding: 10px; }
+        .instructions { font-size: 0.9rem; color: #666; line-height: 1.4; }
+        .status-READY { color: #25d366; }
+        .status-QR_READY { color: #34b7f1; }
+        .status-DISCONNECTED { color: #ff2e2e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HeHo-WH</h1>
+        <div id="status">Initializing...</div>
+        <div id="qrcode">
+            <p>Waiting for QR code...</p>
+        </div>
+        <div class="instructions">
+            <p>1. Open WhatsApp on your phone</p>
+            <p>2. Tap Menu or Settings and select Linked Devices</p>
+            <p>3. Tap on Link a Device</p>
+            <p>4. Point your phone to this screen to capture the code</p>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const statusDiv = document.getElementById('status');
+        const qrcodeDiv = document.getElementById('qrcode');
+
+        socket.on('qr', (url) => {
+            statusDiv.innerText = 'Scan the QR code to connect';
+            statusDiv.className = 'status-QR_READY';
+            qrcodeDiv.innerHTML = `<img src="${url}" alt="WhatsApp QR Code">`;
+        });
+
+        socket.on('ready', () => {
+            statusDiv.innerText = 'WhatsApp is connected and ready!';
+            statusDiv.className = 'status-READY';
+            qrcodeDiv.innerHTML = '<p>✅ Connected</p>';
+        });
+
+        socket.on('authenticated', () => {
+            statusDiv.innerText = 'Authenticated! Starting session...';
+        });
+
+        socket.on('status', (status) => {
+            if (status === 'READY') {
+                statusDiv.innerText = 'WhatsApp is connected and ready!';
+                statusDiv.className = 'status-READY';
+                qrcodeDiv.innerHTML = '<p>✅ Connected</p>';
+            } else if (status === 'DISCONNECTED') {
+                statusDiv.innerText = 'Disconnected. Waiting for QR...';
+                statusDiv.className = 'status-DISCONNECTED';
+            }
+        });
+
+        socket.on('disconnected', () => {
+            statusDiv.innerText = 'Disconnected. Please refresh or wait for new QR.';
+            statusDiv.className = 'status-DISCONNECTED';
+            qrcodeDiv.innerHTML = '<p>Waiting for QR code...</p>';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+(node:3349) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Server is running on port 3001
+QR RECEIVED 2@Xamfoha8y+ehdAFxO/+PCyI4sAYf6O/ZxUVLBOCj5e3/HbCbWr6Etmmthf1YUMJprjjqh+IsMgFX+mvtZ3WkIFUu/ddL6xabg0s=,UvD83Tw6z3VBcj/KeWsQrarTxLICW++JhlVWJJs4VE0=,sKRdRQ4xRdlG1JzlKNKRQy7bCqye1ANw5qDtHsXBnTw=,L7mfVjwGg42fRurvCd2+pEZcNlCxZTUGBGNmXXbzc4Q=,1
