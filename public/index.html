@@ -3,50 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HeHo-WH WhatsApp Bridge</title>
+    <title>HeHo-WH Dashboard</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
+        :root {
+            --primary: #128c7e;
+            --secondary: #25d366;
+            --bg: #f0f2f5;
+            --text: #333;
+            --error: #ff2e2e;
+            --warning: #ff9800;
+            --info: #34b7f1;
+        }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f2f5;
+            min-height: 100vh;
         }
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 400px;
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1200px;
             width: 100%;
         }
-        h1 { color: #128c7e; margin-bottom: 1rem; }
-        #status { margin-bottom: 1rem; font-weight: bold; }
-        #qrcode { margin: 1rem 0; }
-        #qrcode img { max-width: 100%; height: auto; border: 1px solid #ddd; padding: 10px; }
-        .instructions { font-size: 0.9rem; color: #666; line-height: 1.4; }
-        .status-READY { color: #25d366; }
-        .status-QR_READY { color: #34b7f1; }
-        .status-DISCONNECTED { color: #ff2e2e; }
+        @media (max-width: 900px) {
+            .dashboard { grid-template-columns: 1fr; }
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+        }
+        h1, h2 { color: var(--primary); margin-top: 0; }
+        #status { font-weight: bold; margin-bottom: 15px; padding: 10px; border-radius: 6px; text-align: center; }
+        .status-READY { background: #e8f5e9; color: var(--secondary); }
+        .status-QR_READY { background: #e3f2fd; color: var(--info); }
+        .status-DISCONNECTED { background: #ffebee; color: var(--error); }
+        
+        #qrcode { text-align: center; margin: 15px 0; min-height: 200px; display: flex; align-items: center; justify-content: center; border: 2px dashed #ddd; border-radius: 8px; }
+        #qrcode img { max-width: 100%; height: auto; }
+
+        .logs-container {
+            height: 300px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 10px;
+            border-radius: 8px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #333; padding-bottom: 2px; }
+        .log-timestamp { color: #888; margin-right: 8px; }
+        .log-info { color: #4fc3f7; }
+        .log-error { color: #ff5252; }
+        .log-warning { color: #ffd740; }
+
+        .settings-form input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #075e54; }
+        .btn-secondary { background: var(--info); }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        #chat-messages { flex-grow: 1; overflow-y: auto; padding: 10px; background: #f9f9f9; }
+        .chat-input-area { display: flex; padding: 10px; border-top: 1px solid #ddd; }
+        #chat-input { flex-grow: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-right: 8px; }
+        .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px; max-width: 80%; word-wrap: break-word; }
+        .msg-user { background: #dcf8c6; align-self: flex-end; margin-left: auto; }
+        .msg-bot { background: white; border: 1px solid #eee; align-self: flex-start; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>HeHo-WH</h1>
-        <div id="status">Initializing...</div>
-        <div id="qrcode">
-            <p>Waiting for QR code...</p>
+    <h1>HeHo-WH Dashboard</h1>
+    
+    <div class="dashboard">
+        <!-- WhatsApp Connection Card -->
+        <div class="card">
+            <h2>WhatsApp Connection</h2>
+            <div id="status" class="status-DISCONNECTED">Disconnected</div>
+            <div id="qrcode">
+                <p>Waiting for WhatsApp initialization...</p>
+            </div>
+            <div id="connection-info" style="font-size: 0.9rem; color: #666;">
+                Scan the QR code with your WhatsApp app to connect.
+            </div>
         </div>
-        <div class="instructions">
-            <p>1. Open WhatsApp on your phone</p>
-            <p>2. Tap Menu or Settings and select Linked Devices</p>
-            <p>3. Tap on Link a Device</p>
-            <p>4. Point your phone to this screen to capture the code</p>
+
+        <!-- Settings Card -->
+        <div class="card">
+            <h2>HeHo Configuration</h2>
+            <div class="settings-form">
+                <label>HeHo API Key:</label>
+                <input type="password" id="api-key" placeholder="Enter HeHo API Key">
+                <label>Chatbot ID:</label>
+                <input type="text" id="chatbot-id" placeholder="Enter Chatbot ID">
+                <button class="btn" onclick="updateConfig()">Update Configuration</button>
+            </div>
+            <hr style="width: 100%; margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <h2>Test HeHo Chat</h2>
+            <div class="chat-container">
+                <div id="chat-messages"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Type a test message...">
+                    <button class="btn btn-secondary" onclick="sendTestChat()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Card (Full Width) -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>Live Application Logs</h2>
+            <div id="logs" class="logs-container"></div>
+            <button class="btn" style="margin-top: 10px; align-self: flex-end;" onclick="clearLogs()">Clear Logs</button>
         </div>
     </div>
 
@@ -54,38 +156,105 @@
         const socket = io();
         const statusDiv = document.getElementById('status');
         const qrcodeDiv = document.getElementById('qrcode');
+        const logsDiv = document.getElementById('logs');
+        const chatMessages = document.getElementById('chat-messages');
 
+        // Socket Events
         socket.on('qr', (url) => {
-            statusDiv.innerText = 'Scan the QR code to connect';
+            statusDiv.innerText = 'Scan QR Code';
             statusDiv.className = 'status-QR_READY';
             qrcodeDiv.innerHTML = `<img src="${url}" alt="WhatsApp QR Code">`;
         });
 
         socket.on('ready', () => {
-            statusDiv.innerText = 'WhatsApp is connected and ready!';
+            statusDiv.innerText = 'WhatsApp Connected & Ready';
             statusDiv.className = 'status-READY';
-            qrcodeDiv.innerHTML = '<p>✅ Connected</p>';
-        });
-
-        socket.on('authenticated', () => {
-            statusDiv.innerText = 'Authenticated! Starting session...';
+            qrcodeDiv.innerHTML = '<div style="font-size: 3rem;">✅</div><p>Connected to WhatsApp</p>';
         });
 
         socket.on('status', (status) => {
             if (status === 'READY') {
-                statusDiv.innerText = 'WhatsApp is connected and ready!';
+                statusDiv.innerText = 'WhatsApp Connected & Ready';
                 statusDiv.className = 'status-READY';
-                qrcodeDiv.innerHTML = '<p>✅ Connected</p>';
+                qrcodeDiv.innerHTML = '<div style="font-size: 3rem;">✅</div><p>Connected to WhatsApp</p>';
             } else if (status === 'DISCONNECTED') {
-                statusDiv.innerText = 'Disconnected. Waiting for QR...';
+                statusDiv.innerText = 'Disconnected';
                 statusDiv.className = 'status-DISCONNECTED';
+                qrcodeDiv.innerHTML = '<p>Waiting for QR code...</p>';
             }
         });
 
-        socket.on('disconnected', () => {
-            statusDiv.innerText = 'Disconnected. Please refresh or wait for new QR.';
-            statusDiv.className = 'status-DISCONNECTED';
-            qrcodeDiv.innerHTML = '<p>Waiting for QR code...</p>';
+        socket.on('log', (log) => {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-timestamp">[${log.timestamp}]</span><span class="log-${log.type}">${log.message}</span>`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        });
+
+        socket.on('config', (config) => {
+            document.getElementById('api-key').value = config.HEHO_API_KEY || '';
+            document.getElementById('chatbot-id').value = config.CHATBOT_ID || '';
+        });
+
+        // Functions
+        async function updateConfig() {
+            const apiKey = document.getElementById('api-key').value;
+            const chatbotId = document.getElementById('chatbot-id').value;
+            
+            try {
+                const res = await fetch('/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey, chatbotId })
+                });
+                const data = await res.json();
+                if (data.success) alert('Configuration updated successfully!');
+            } catch (err) {
+                alert('Error updating configuration: ' + err.message);
+            }
+        }
+
+        async function sendTestChat() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addChatMessage(message, 'user');
+            input.value = '';
+
+            try {
+                const res = await fetch('/test-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    addChatMessage(data.reply, 'bot');
+                } else {
+                    addChatMessage('Error: ' + data.error, 'bot');
+                }
+            } catch (err) {
+                addChatMessage('Error: ' + err.message, 'bot');
+            }
+        }
+
+        function addChatMessage(text, sender) {
+            const msg = document.createElement('div');
+            msg.className = `msg msg-${sender}`;
+            msg.innerText = text;
+            chatMessages.appendChild(msg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function clearLogs() {
+            logsDiv.innerHTML = '';
+        }
+
+        // Handle Enter key in chat
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendTestChat();
         });
     </script>
 </body>

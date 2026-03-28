@@ -1,7 +1,0 @@
-(node:5945) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-Server is running on port 3002
-Failed to initialize WhatsApp client: Error: The browser is already running for /home/ubuntu/HeHo-WH/.wwebjs_auth/session. Use a different `userDataDir` or stop the running browser first.
-    at ChromeLauncher.launch (/home/ubuntu/HeHo-WH/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:175:23)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async Client.initialize (/home/ubuntu/HeHo-WH/node_modules/whatsapp-web.js/src/Client.js:331:23)
