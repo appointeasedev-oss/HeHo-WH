@@ -112,10 +112,14 @@ async function callHeHoAPI(userMessage) {
     });
 
     let reply = '';
-    if (response.data && response.data.content) {
-        reply = response.data.content;
-    } else if (response.data && response.data.choices && response.data.choices[0].message) {
-        reply = response.data.choices[0].message.content;
+    if (response.data) {
+        if (response.data.reply) {
+            reply = response.data.reply;
+        } else if (response.data.content) {
+            reply = response.data.content;
+        } else if (response.data.choices && response.data.choices[0].message) {
+            reply = response.data.choices[0].message.content;
+        }
     }
 
     if (!reply) {
