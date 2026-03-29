@@ -89,6 +89,7 @@ client.on('qr', (qr) => {
         qrCodeData = url;
         clientStatus = 'QR_READY';
         io.emit('qr', url);
+        notifyHeHo('/whatsapp/qr', { chatbot_id: CHATBOT_ID, qr: url }, 'QR update');
     });
     notifyHeHo('/whatsapp/qr', { chatbot_id: CHATBOT_ID, qr }, 'QR update');
 });
