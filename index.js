@@ -14,12 +14,44 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 let HEHO_API_KEY = process.env.HEHO_API_KEY;
 let CHATBOT_ID = process.env.CHATBOT_ID;
+const HEHO_API = (process.env.HEHO_API || 'https://heho.vercel.app/api').replace(/\/+$/, '');
+const SERVER_URL = process.env.SERVER_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
 
 app.use(express.json());
 app.use(express.static('public'));
 
 let qrCodeData = null;
 let clientStatus = 'DISCONNECTED';
+
+function setClientStatus(status) {
+    clientStatus = status;
+    io.emit('status', clientStatus);
+}
+
+function getHeHoHeaders() {
+    return {
+        'Authorization': `Bearer ${HEHO_API_KEY}`,
+        'Content-Type': 'application/json'
+    };
+}
+
+async function notifyHeHo(endpoint, body, logContext) {
+    if (!HEHO_API_KEY || !CHATBOT_ID) {
+        sendLog(`Skipping ${logContext}: missing HEHO_API_KEY or CHATBOT_ID`, 'warning');
+        return;
+    }
+
+    try {
+        await axios.post(`${HEHO_API}${endpoint}`, body, {
+            headers: getHeHoHeaders(),
+            timeout: 30000
+        });
+        sendLog(`${logContext} sent to HeHo.`);
+    } catch (error) {
+        const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+        sendLog(`Failed to send ${logContext}: ${errorMsg}`, 'error');
+    }
+}
 
 // Helper to send logs to the web UI
 function sendLog(message, type = 'info') {
@@ -60,33 +92,36 @@ client.on('qr', (qr) => {
             return;
         }
         qrCodeData = url;
-        clientStatus = 'QR_READY';
+        setClientStatus('QR_READY');
         io.emit('qr', url);
+        notifyHeHo('/whatsapp/qr', { chatbot_id: CHATBOT_ID, qr: url }, 'QR update');
     });
 });
 
 client.on('ready', () => {
     sendLog('WhatsApp Client is ready and connected!');
-    clientStatus = 'READY';
+    setClientStatus('CONNECTED');
     qrCodeData = null;
     io.emit('ready');
+    notifyHeHo('/whatsapp/connected', { chatbot_id: CHATBOT_ID, status: 'connected' }, 'connected status');
 });
 
 client.on('authenticated', () => {
     sendLog('WhatsApp Authenticated successfully.');
-    clientStatus = 'AUTHENTICATED';
+    setClientStatus('AUTHENTICATED');
     io.emit('authenticated');
+    notifyHeHo('/whatsapp/connected', { chatbot_id: CHATBOT_ID, status: 'connected' }, 'connected status');
 });
 
 client.on('auth_failure', msg => {
     sendLog('WhatsApp Authentication Failure: ' + msg, 'error');
-    clientStatus = 'AUTH_FAILURE';
+    setClientStatus('AUTH_FAILURE');
     io.emit('auth_failure', msg);
 });
 
 client.on('disconnected', (reason) => {
     sendLog('WhatsApp Client was logged out: ' + reason, 'warning');
-    clientStatus = 'DISCONNECTED';
+    setClientStatus('DISCONNECTED');
     io.emit('disconnected');
     setTimeout(() => {
         sendLog('Attempting to re-initialize WhatsApp client...');
@@ -100,14 +135,12 @@ async function callHeHoAPI(userMessage) {
     }
 
     sendLog(`Calling HeHo API for message: "${userMessage}"`);
-    const response = await axios.post('https://heho.vercel.app/api/aichat', {
+    const response = await axios.post(`${HEHO_API}/aichat`, {
         chatbotId: CHATBOT_ID,
-        messages: [{ role: 'user', content: userMessage }]
+        messages: [{ role: 'user', content: userMessage }],
+        history: []
     }, {
-        headers: {
-            'Authorization': `Bearer ${HEHO_API_KEY}`,
-            'Content-Type': 'application/json'
-        },
+        headers: getHeHoHeaders(),
         timeout: 30000
     });
 
@@ -148,7 +181,7 @@ client.on('message', async (msg) => {
 
 // API Routes for UI
 app.get('/config', (req, res) => {
-    res.json({ HEHO_API_KEY, CHATBOT_ID });
+    res.json({ HEHO_API_KEY, CHATBOT_ID, HEHO_API, SERVER_URL });
 });
 
 app.post('/config', (req, res) => {
@@ -178,15 +211,46 @@ app.get('/status', (req, res) => {
     res.json({ status: clientStatus, qr: qrCodeData });
 });
 
+app.get('/api/sessions/:sessionId/qr', (req, res) => {
+    if (!qrCodeData) {
+        return res.status(404).json({
+            success: false,
+            error: 'QR code is not available right now.'
+        });
+    }
+
+    const matches = qrCodeData.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!matches) {
+        return res.status(500).json({
+            success: false,
+            error: 'Stored QR code format is invalid.'
+        });
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(imageBuffer);
+});
+
 io.on('connection', (socket) => {
     sendLog('Web UI connected');
     if (qrCodeData) socket.emit('qr', qrCodeData);
     socket.emit('status', clientStatus);
-    socket.emit('config', { HEHO_API_KEY, CHATBOT_ID });
+    socket.emit('config', { HEHO_API_KEY, CHATBOT_ID, HEHO_API, SERVER_URL });
 });
 
 server.listen(PORT, () => {
     sendLog(`Server is running on port ${PORT}`);
+    if (SERVER_URL) {
+        notifyHeHo('/whatsapp/server-url', { chatbotId: CHATBOT_ID, serverUrl: SERVER_URL }, 'server URL');
+    } else {
+        sendLog('SERVER_URL and RAILWAY_PUBLIC_DOMAIN are not set; skipping server URL registration.', 'warning');
+    }
+    notifyHeHo('/whatsapp/deployed', { chatbot_id: CHATBOT_ID }, 'deployment status');
     client.initialize().catch(err => {
         sendLog('Failed to initialize WhatsApp client: ' + err.message, 'error');
     });
