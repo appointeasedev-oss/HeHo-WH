@@ -14,8 +14,10 @@ HeHo-WH is a bridge application that connects your WhatsApp account to a HeHo ch
 1.  **Fork/Clone this repository** to your GitHub account.
 2.  **Create a new project on Railway** and connect it to your repository.
 3.  **Configure Environment Variables** in Railway:
+    - `HEHO_API`: HeHo API base URL (for example, `https://heho.vercel.app/api`).
     - `HEHO_API_KEY`: Your HeHo API key.
     - `CHATBOT_ID`: The unique ID of your HeHo chatbot.
+    - `SERVER_URL` (optional): Public Railway URL. If omitted, app will use `RAILWAY_PUBLIC_DOMAIN`.
     - `PORT`: 3000 (Railway usually sets this automatically).
 4.  **Wait for deployment**. Once deployed, open the provided Railway URL.
 5.  **Scan the QR code** with your WhatsApp app (Settings > Linked Devices > Link a Device).
@@ -24,8 +26,10 @@ HeHo-WH is a bridge application that connects your WhatsApp account to a HeHo ch
 
 | Variable | Description |
 | :--- | :--- |
+| `HEHO_API` | Base URL for HeHo API endpoints. Defaults to `https://heho.vercel.app/api`. |
 | `HEHO_API_KEY` | Your HeHo API authorization token (Bearer token). |
 | `CHATBOT_ID` | The ID of the chatbot you want to connect to. |
+| `SERVER_URL` | Optional explicit public URL of your Railway service. Falls back to `RAILWAY_PUBLIC_DOMAIN` when available. |
 | `PORT` | The port the server will listen on (default: 3000). |
 
 ## Local Development
