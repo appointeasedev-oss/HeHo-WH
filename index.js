@@ -206,6 +206,31 @@ app.get('/status', (req, res) => {
     res.json({ status: clientStatus, qr: qrCodeData });
 });
 
+app.get('/api/sessions/:sessionId/qr', (req, res) => {
+    if (!qrCodeData) {
+        return res.status(404).json({
+            success: false,
+            error: 'QR code is not available right now.'
+        });
+    }
+
+    const matches = qrCodeData.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!matches) {
+        return res.status(500).json({
+            success: false,
+            error: 'Stored QR code format is invalid.'
+        });
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(imageBuffer);
+});
+
 io.on('connection', (socket) => {
     sendLog('Web UI connected');
     if (qrCodeData) socket.emit('qr', qrCodeData);
