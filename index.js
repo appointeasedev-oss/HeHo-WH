@@ -14,12 +14,39 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 let HEHO_API_KEY = process.env.HEHO_API_KEY;
 let CHATBOT_ID = process.env.CHATBOT_ID;
+const HEHO_API = (process.env.HEHO_API || 'https://heho.vercel.app/api').replace(/\/+$/, '');
+const SERVER_URL = process.env.SERVER_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
 
 app.use(express.json());
 app.use(express.static('public'));
 
 let qrCodeData = null;
 let clientStatus = 'DISCONNECTED';
+
+function getHeHoHeaders() {
+    return {
+        'Authorization': `Bearer ${HEHO_API_KEY}`,
+        'Content-Type': 'application/json'
+    };
+}
+
+async function notifyHeHo(endpoint, body, logContext) {
+    if (!HEHO_API_KEY || !CHATBOT_ID) {
+        sendLog(`Skipping ${logContext}: missing HEHO_API_KEY or CHATBOT_ID`, 'warning');
+        return;
+    }
+
+    try {
+        await axios.post(`${HEHO_API}${endpoint}`, body, {
+            headers: getHeHoHeaders(),
+            timeout: 30000
+        });
+        sendLog(`${logContext} sent to HeHo.`);
+    } catch (error) {
+        const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+        sendLog(`Failed to send ${logContext}: ${errorMsg}`, 'error');
+    }
+}
 
 // Helper to send logs to the web UI
 function sendLog(message, type = 'info') {
@@ -62,6 +89,7 @@ client.on('qr', (qr) => {
         qrCodeData = url;
         clientStatus = 'QR_READY';
         io.emit('qr', url);
+        notifyHeHo('/whatsapp/qr', { chatbot_id: CHATBOT_ID, qr: url }, 'QR update');
     });
 });
 
@@ -70,6 +98,7 @@ client.on('ready', () => {
     clientStatus = 'READY';
     qrCodeData = null;
     io.emit('ready');
+    notifyHeHo('/whatsapp/connected', { chatbot_id: CHATBOT_ID, status: 'connected' }, 'connected status');
 });
 
 client.on('authenticated', () => {
@@ -100,14 +129,12 @@ async function callHeHoAPI(userMessage) {
     }
 
     sendLog(`Calling HeHo API for message: "${userMessage}"`);
-    const response = await axios.post('https://heho.vercel.app/api/aichat', {
+    const response = await axios.post(`${HEHO_API}/aichat`, {
         chatbotId: CHATBOT_ID,
-        messages: [{ role: 'user', content: userMessage }]
+        messages: [{ role: 'user', content: userMessage }],
+        history: []
     }, {
-        headers: {
-            'Authorization': `Bearer ${HEHO_API_KEY}`,
-            'Content-Type': 'application/json'
-        },
+        headers: getHeHoHeaders(),
         timeout: 30000
     });
 
@@ -148,7 +175,7 @@ client.on('message', async (msg) => {
 
 // API Routes for UI
 app.get('/config', (req, res) => {
-    res.json({ HEHO_API_KEY, CHATBOT_ID });
+    res.json({ HEHO_API_KEY, CHATBOT_ID, HEHO_API, SERVER_URL });
 });
 
 app.post('/config', (req, res) => {
@@ -182,11 +209,17 @@ io.on('connection', (socket) => {
     sendLog('Web UI connected');
     if (qrCodeData) socket.emit('qr', qrCodeData);
     socket.emit('status', clientStatus);
-    socket.emit('config', { HEHO_API_KEY, CHATBOT_ID });
+    socket.emit('config', { HEHO_API_KEY, CHATBOT_ID, HEHO_API, SERVER_URL });
 });
 
 server.listen(PORT, () => {
     sendLog(`Server is running on port ${PORT}`);
+    if (SERVER_URL) {
+        notifyHeHo('/whatsapp/server-url', { chatbotId: CHATBOT_ID, serverUrl: SERVER_URL }, 'server URL');
+    } else {
+        sendLog('SERVER_URL and RAILWAY_PUBLIC_DOMAIN are not set; skipping server URL registration.', 'warning');
+    }
+    notifyHeHo('/whatsapp/deployed', { chatbot_id: CHATBOT_ID }, 'deployment status');
     client.initialize().catch(err => {
         sendLog('Failed to initialize WhatsApp client: ' + err.message, 'error');
     });
